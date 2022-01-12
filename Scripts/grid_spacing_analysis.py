@@ -20,6 +20,7 @@ Used to generate figures for Transfer Report addendum.
 
 # Initialise libraries
 from collections import deque
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -210,12 +211,12 @@ fig.savefig(file_path, dpi=500, bbox_inches = 'tight')
 grid_stats = get_grid_stats(grid_spacing_list, hypoxic_threshold_list, plot=0, read=0)
 
 # Filter by grid spacing
-mean_composite = np.array([])
-min_composite = np.array([])
-half_composite = np.array([])
-max_composite = np.array([])
-sd_composite = np.array([])
-hypoxic_fraction_composite = np.array([])
+mean_composite = np.array([], dtype=np.float)
+min_composite = np.array([], dtype=np.float)
+half_composite = np.array([], dtype=np.float)
+max_composite = np.array([], dtype=np.float)
+sd_composite = np.array([], dtype=np.float)
+hypoxic_fraction_composite = np.array([], dtype=np.float)
 for grid_spacing in grid_spacing_list:
     spacing_array = grid_stats[(grid_stats[:,0]==float(grid_spacing))]
     hypoxic_fraction_data = spacing_array[:,2:-5]  # extract data between identifiers and basic stats (i.e., hypoxic fractions)
@@ -232,25 +233,30 @@ for grid_spacing in grid_spacing_list:
     sd_composite = np.vstack([sd_composite, sd_data]) if sd_composite.size else sd_data
 
 # Obtain the absolute difference from the finest mesh size
-mean_difference_list = np.abs(mean_composite - mean_composite[0])
-min_difference_list = np.abs(min_composite - min_composite[0])
-max_difference_list = np.abs(max_composite - max_composite[0])
-sd_difference_list = np.abs(sd_composite - sd_composite[0])
+mean_difference_list = np.array(np.abs(mean_composite - mean_composite[0]), dtype=np.float)
+sd_difference_list = np.array(np.abs(sd_composite - sd_composite[0]), dtype=np.float)
+
+# Obtain the absolute difference from the finest mesh size
+mean_difference_list = np.array(np.abs(mean_composite - mean_composite[0]), dtype=np.float)
+sd_difference_list = np.array(np.abs(sd_composite - sd_composite[0]), dtype=np.float)
+
+# Obtain the order of convergence line
+mean_slope, mean_intercept = np.polyfit((np.array(np.log(grid_spacing_list[1:6]), dtype=np.float)), np.log(mean_difference_list[1:6]), 1)
+sd_slope, sd_intercept = np.polyfit((np.array(np.log(grid_spacing_list[1:6]), dtype=np.float)), np.log(sd_difference_list[1:6]), 1)
 
 # Plot the results for all grid sizes
 fig = plt.figure(figsize=(20,12), tight_layout = {'pad': 2})
 linestyles = ['solid', 'dashed', 'dotted', 'dashdot', (0,(5,10)), (0, (3, 1, 1, 1, 1, 1))]
-plt.plot(grid_spacing_list, mean_difference_list, ls='dashed', label='mean', marker='o')
-plt.plot(grid_spacing_list, min_difference_list, ls='dotted', label='min', marker='s')
-plt.plot(grid_spacing_list, max_difference_list, ls='dashdot', label='max', marker='^')
-plt.plot(grid_spacing_list, sd_difference_list, ls='solid', label='SD', marker='x')
+plt.plot(grid_spacing_list[1:], mean_difference_list[1:], ls='dashed', label='mean', marker='o', c='blue')
+plt.plot(grid_spacing_list[1:], sd_difference_list[1:], ls='dashed', label='SD', marker='x', c='red')
+plt.plot(grid_spacing_list[1:6], [((element ** 2)*10) for element in grid_spacing_list][1:6], c='black', label='$O(n^2)$', ls='dashed')
 plt.ticklabel_format(axis="y", style="sci", scilimits=(0,0))
 plt.legend(loc="upper right", prop={'size': 15})
 plt.axvline(10, ls='dotted', c='black')
 plt.grid()
 plt.xscale('log')
 plt.yscale('log')
-plt.ylabel('absolute difference from simulation with finest mesh size (nM)')
+plt.ylabel('absolute error (nM)')
 plt.xlabel('grid spacing (μm)')
 plt.show()
 
